@@ -1,5 +1,5 @@
 # QuantumSim
-QuantumSim je interaktívna aplikácia, ktorá umožňuje simuláciu a vizualizáciu vybraných kvantových protokolov, čím poskytuje efektívny edukačný nástroj na ich lepšie pochopenie.
+QuantumSim je interaktívna aplikácia, ktorá umožňuje simuláciu a vizualizáciu vybraných kvantových protokolov, čím poskytuje vzdelávací nástroj na ich lepšie pochopenie.
 
 Medzi vybrané kvantové protokoly patria: 
 * Kvantová distribúcia kľúčov QKD - BB84
@@ -13,3 +13,4 @@ Medzi vybrané kvantové protokoly patria:
 
 Požiadavky na správne spustenie aplikácie QuantumSim:
  
+* XXX
