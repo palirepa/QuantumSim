@@ -19,5 +19,5 @@ Požiadavky na správne spustenie aplikácie **QuantumSim**:
 * qiskit-ibmq-provider==0.20.2
 * qiskit-terra==0.23.0
 
-Zvyšné baličky sú uverejnené v .
+Zvyšné baličky sú uverejnené v [requirements.txt]([https://github.com](https://github.com/palirepa/QuantumSim/blob/main/requirements.txt)).
 
