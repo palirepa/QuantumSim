@@ -13,7 +13,7 @@ Medzi vybrané kvantové protokoly patria:
 
 Požiadavky na správne spustenie aplikácie **QuantumSim**:
  
-* Python 3.10
+* **Python 3.10**
 * qiskit==0.40.0
 * qiskit-aer==0.11.2
 * qiskit-ibmq-provider==0.20.2
