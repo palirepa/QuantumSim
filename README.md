@@ -8,7 +8,7 @@ Medzi vybrané kvantové protokoly patria:
 * Kvantové zdieľanie tajomstiev
 * Kvantová Byzantská dohoda
 * Kvantové generovanie náhodných čísel
-* Kvantové overovania polohy
+* Kvantové overovanie polohy
 * Kvantová synchronizácia času 
 
 Požiadavky na správne spustenie aplikácie **QuantumSim**:
