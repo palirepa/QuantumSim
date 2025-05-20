@@ -138,6 +138,7 @@ class QuantumByzantineAgreement(QWidget):
 
         phase_layout.addWidget(QLabel("Konsenzus:"))
         self.consensus_label = QLabel("Nedosiahnutý")
+        self.consensus_label.setStyleSheet("font-weight: bold;")
         phase_layout.addWidget(self.consensus_label)
 
         status_layout.addLayout(phase_layout)
@@ -193,7 +194,7 @@ class QuantumByzantineAgreement(QWidget):
             self.view.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def initialize_index_sets(self):
-        """Inicializuje množiny indexov pre Z-bázu podľa protokolu."""
+        """Inicializuje množiny indexov pre Z-bázu."""
         self.index_sets = {
             "J0": [("S", 0), ("R0", 1), ("R1", 2),  # Trieda I
                    ("S", 0), ("R0", 2), ("R1", 1)],  # Trieda II
@@ -260,6 +261,9 @@ class QuantumByzantineAgreement(QWidget):
         self.update_node_table()
         self.draw_network()
         self.update_info_text("Protokol resetovaný. Stlačte 'Inicializovať protokol' pre začatie.")
+
+        self.consensus_label.setText("Nedosiahnutý")
+        self.consensus_label.setStyleSheet("font-weight: bold;")
 
         self.step_button.setEnabled(False)
         self.play_button.setEnabled(False)
@@ -338,26 +342,35 @@ class QuantumByzantineAgreement(QWidget):
             # Prijímatelia získavajú hodnoty od odosielateľa
             if self.byzantine_player == "S" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
                 # Byzantský odosielateľ posiela rozdielne bity
-                if random.random() < 0.5:
+                # Náhodne vyberieme, ktorý prijímateľ dostane konzistentné údaje
+                consistent_receiver = random.choice([0, 1])
+
+                if consistent_receiver == 0:
+                    # R0 dostáva bit zodpovedajúci indexom, R1 dostáva opačný bit
                     self.receiver_values[0] = self.sender_value
                     self.receiver_values[1] = 1 - self.sender_value
                 else:
+                    # R1 dostáva bit zodpovedajúci indexom, R0 dostáva opačný bit
                     self.receiver_values[0] = 1 - self.sender_value
                     self.receiver_values[1] = self.sender_value
+
+                self.messages = [
+                    {"from": "S", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
+                    {"from": "S", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
+                ]
+
+                self.update_info_text(f"Fáza 2: Byzantský odosielateľ posiela rozdielne bity prijímateľom. "
+                                      f"R0 dostáva {self.receiver_values[0]}, R1 dostáva {self.receiver_values[1]}.")
             else:
                 # Poctivý odosielateľ posiela rovnaký bit obom prijímateľom
                 self.receiver_values[0] = self.sender_value
                 self.receiver_values[1] = self.sender_value
 
-            self.messages = [
-                {"from": "S", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
-                {"from": "S", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
-            ]
+                self.messages = [
+                    {"from": "S", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
+                    {"from": "S", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
+                ]
 
-            if self.byzantine_player == "S" and self.receiver_values[0] != self.receiver_values[1]:
-                self.update_info_text(f"Fáza 2: Byzantský odosielateľ posiela rozdielne bity prijímateľom. "
-                                      f"R0 dostáva {self.receiver_values[0]}, R1 dostáva {self.receiver_values[1]}.")
-            else:
                 self.update_info_text(f"Fáza 2: Odosielateľ posiela bit {self.sender_value} obom prijímateľom.")
 
         elif self.current_step == 2:
@@ -376,12 +389,18 @@ class QuantumByzantineAgreement(QWidget):
                                       f"ale posiela falošné indexy z množiny J{wrong_bit} namiesto J{self.sender_value}.")
             else:
                 # Odosielateľ posiela správne indexy zodpovedajúce jeho bitu
+                # Aj byzantský odosielateľ pri "Odoslanie rozdielnych hodnôt" posiela správne indexy
                 self.messages = [
                     {"from": "S", "to": "R0", "type": "classical", "label": f"indexy J{self.sender_value}"},
                     {"from": "S", "to": "R1", "type": "classical", "label": f"indexy J{self.sender_value}"}
                 ]
-                self.update_info_text("Fáza 2: Odosielateľ meria svoje qutrity v Z-báze a posiela "
-                                      f"prijímateľom indexy qutritov z množiny J{self.sender_value} zodpovedajúce jeho bitu.")
+
+                if self.byzantine_player == "S" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                    self.update_info_text("Fáza 2: Byzantský odosielateľ meria svoje qutrity v Z-báze a posiela "
+                                          f"obom prijímateľom rovnaké indexy J{self.sender_value} zodpovedajúce jeho bitu.")
+                else:
+                    self.update_info_text("Fáza 2: Odosielateľ meria svoje qutrity v Z-báze a posiela "
+                                          f"prijímateľom indexy qutritov z množiny J{self.sender_value} zodpovedajúce jeho bitu.")
 
             self.phase = "verification"
             self.current_step = 0
@@ -389,26 +408,50 @@ class QuantumByzantineAgreement(QWidget):
     def handle_verification_phase(self):
         """Spracovanie fázy overenia"""
         if self.current_step == 1:
-            # Byzantské správanie ovplyvňuje merania
+            # Prijímatelia merajú svoje qutrity a kontrolujú konzistenciu s indexami
+
             if self.byzantine_player == "S" and self.byzantine_behavior_combo.currentText() == "Falošné indexy":
-                # Odosielateľ poslal falošné indexy
+                # Odosielateľ poslal falošné indexy - obaja prijímatelia zistia nekonzistenciu
                 self.quantum_states["R0"] = f"Nekonzistentné s J{1 - self.sender_value}"
                 self.quantum_states["R1"] = f"Nekonzistentné s J{1 - self.sender_value}"
                 self.update_info_text("Fáza 3: Prijímatelia merajú svoje qutrity v Z-báze a zisťujú "
                                       f"nekonzistenciu s indexami J{1 - self.sender_value} od odosielateľa. "
                                       "Výsledky meraní nezodpovedajú Aharonovmu stavu.")
+
+            elif self.byzantine_player == "S" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                # Byzantský odosielateľ poslal správne indexy, ale rozdielne hodnoty
+                # Jeden prijímateľ má konzistentné merania, druhý nie
+                consistent_receiver_idx = 0 if self.receiver_values[0] == self.sender_value else 1
+
+                if consistent_receiver_idx == 0:
+                    self.quantum_states["R0"] = f"Zmeraný: {self.receiver_values[0]}"
+                    self.quantum_states["R1"] = f"Nekonzistentné s J{self.sender_value}"
+                    self.update_info_text(
+                        "Fáza 3: Prijímateľ R0 meria svoje qutrity v Z-báze a potvrdzuje konzistenciu "
+                        f"s indexami J{self.sender_value}. Prijímateľ R1 zisťuje nekonzistenciu "
+                        f"medzi svojím bitom {self.receiver_values[1]} a indexami J{self.sender_value}.")
+                else:
+                    self.quantum_states["R0"] = f"Nekonzistentné s J{self.sender_value}"
+                    self.quantum_states["R1"] = f"Zmeraný: {self.receiver_values[1]}"
+                    self.update_info_text(
+                        "Fáza 3: Prijímateľ R1 meria svoje qutrity v Z-báze a potvrdzuje konzistenciu "
+                        f"s indexami J{self.sender_value}. Prijímateľ R0 zisťuje nekonzistenciu "
+                        f"medzi svojím bitom {self.receiver_values[0]} a indexami J{self.sender_value}.")
+
             elif self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() == "Falošné indexy":
                 # R0 predstiera falošné výsledky meraní
                 self.quantum_states["R0"] = f"Falošné meranie pre bit {1 - self.receiver_values[0]}"
                 self.quantum_states["R1"] = f"Zmeraný: {self.receiver_values[1]}"
                 self.update_info_text("Fáza 3: Byzantský prijímateľ R0 falošne hlási merania, "
                                       f"ktoré nezodpovedajú indexom J{self.sender_value} od odosielateľa.")
+
             elif self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() == "Falošné indexy":
                 # R1 predstiera falošné výsledky meraní
                 self.quantum_states["R0"] = f"Zmeraný: {self.receiver_values[0]}"
                 self.quantum_states["R1"] = f"Falošné meranie pre bit {1 - self.receiver_values[1]}"
                 self.update_info_text("Fáza 3: Byzantský prijímateľ R1 falošne hlási merania, "
                                       f"ktoré nezodpovedajú indexom J{self.sender_value} od odosielateľa.")
+
             else:
                 # Normálne meranie - konzistentné s Aharonovym stavom
                 self.quantum_states["R0"] = f"Zmeraný: {self.receiver_values[0]}"
@@ -418,12 +461,29 @@ class QuantumByzantineAgreement(QWidget):
 
         elif self.current_step == 2:
             # Výmena informácií o prijatých bitoch
-            self.messages = [
-                {"from": "R0", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
-                {"from": "R1", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
-            ]
-
-            self.update_info_text("Fáza 3: Prijímatelia si vymieňajú informácie o prijatých bitoch.")
+            if self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                # Byzantský R0 posiela R1 opačnú hodnotu než prijal
+                self.messages = [
+                    {"from": "R0", "to": "R1", "type": "classical", "label": f"bit={1 - self.receiver_values[0]}"},
+                    {"from": "R1", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
+                ]
+                self.update_info_text("Fáza 3: Byzantský prijímateľ R0 posiela opačnú hodnotu než prijal. "
+                                      f"R0 tvrdí, že dostal bit {1 - self.receiver_values[0]} namiesto {self.receiver_values[0]}.")
+            elif self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                # Byzantský R1 posiela R0 opačnú hodnotu než prijal
+                self.messages = [
+                    {"from": "R0", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
+                    {"from": "R1", "to": "R0", "type": "classical", "label": f"bit={1 - self.receiver_values[1]}"}
+                ]
+                self.update_info_text("Fáza 3: Byzantský prijímateľ R1 posiela opačnú hodnotu než prijal. "
+                                      f"R1 tvrdí, že dostal bit {1 - self.receiver_values[1]} namiesto {self.receiver_values[1]}.")
+            else:
+                # Normálna výmena
+                self.messages = [
+                    {"from": "R0", "to": "R1", "type": "classical", "label": f"bit={self.receiver_values[0]}"},
+                    {"from": "R1", "to": "R0", "type": "classical", "label": f"bit={self.receiver_values[1]}"}
+                ]
+                self.update_info_text("Fáza 3: Prijímatelia si vymieňajú informácie o prijatých bitoch.")
 
             self.phase = "detection"
             self.current_step = 0
@@ -434,45 +494,65 @@ class QuantumByzantineAgreement(QWidget):
             # Detekcia byzantského odosielateľa
             if self.byzantine_player == "S":
                 if self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                    # Ak majú prijímatelia rozdielne hodnoty, jeden z nich zistil aj nekonzistenciu
+                    # s indexami - to indikuje byzantského odosielateľa
                     self.messages = [
                         {"from": "R0", "to": "R1", "type": "classical", "label": "nekonzistentné"}
                     ]
                     self.update_info_text("Fáza 4: Detekcia zradcu - Prijímatelia zistili rozdielne bity. "
+                                          "Jeden z nich zistil nekonzistenciu medzi prijatým bitom a indexami. "
                                           "Vlastnosti Aharonovho stavu naznačujú, že odosielateľ je byzantský.")
+
                 elif self.byzantine_behavior_combo.currentText() == "Falošné indexy":
+                    # Obaja prijímatelia zistili nekonzistenciu s indexami
                     self.messages = [
                         {"from": "R0", "to": "R1", "type": "classical", "label": "falošné indexy"},
                         {"from": "R1", "to": "R0", "type": "classical", "label": "falošné indexy"}
                     ]
                     self.update_info_text("Fáza 4: Detekcia zradcu - Prijímatelia zistili nekonzistenciu "
                                           "v indexoch qutritov, čo odhalilo byzantského odosielateľa.")
+
                 else:  # "Odmietnutie dohody"
                     self.update_info_text("Fáza 4: Prijímatelia kontrolujú konzistenciu. "
                                           "Zatiaľ nezistili žiadnu nekonzistenciu.")
 
-            # Detekcia byzantského prijímateľa
-            elif self.byzantine_player == "R0":
-                if self.byzantine_behavior_combo.currentText() == "Falošné indexy":
-                    self.messages = [
-                        {"from": "R0", "to": "R1", "type": "classical", "label": "falošná nekonzistencia"}
-                    ]
-                    self.update_info_text("Fáza 4: Detekcia zradcu - Byzantský prijímateľ R0 sa pokúša "
-                                          "podviesť, ale Aharonov stav odhalí jeho nečestné správanie.")
-                else:
-                    self.update_info_text("Fáza 4: Prijímatelia kontrolujú konzistenciu. "
-                                          "Byzantský R0 zatiaľ nie je odhalený.")
+            # Detekcia byzantského prijímateľa (R0 alebo R1) pri režime "Odoslanie rozdielnych hodnôt"
+            elif self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                # R0 je byzantský, R1 a S môžu porovnať hodnoty a detekovať ho
+                self.messages = [
+                    {"from": "R1", "to": "S", "type": "classical", "label": "rozdielne hodnoty"},
+                    {"from": "S", "to": "R1", "type": "classical", "label": "R0 je byzantský"}
+                ]
+                self.update_info_text("Fáza 4: Detekcia zradcu - Prijímateľ R1 a odosielateľ S zistili, "
+                                      "že hodnota hlásená prijímateľom R0 je rozdielna od hodnoty, ktorú "
+                                      "poslal odosielateľ. Odhalili, že R0 je byzantský.")
 
-            elif self.byzantine_player == "R1":
-                if self.byzantine_behavior_combo.currentText() == "Falošné indexy":
-                    self.messages = [
-                        {"from": "R1", "to": "R0", "type": "classical", "label": "falošná nekonzistencia"}
-                    ]
-                    self.update_info_text("Fáza 4: Detekcia zradcu - Byzantský prijímateľ R1 sa pokúša "
-                                          "podviesť, ale Aharonov stav odhalí jeho nečestné správanie.")
-                else:
-                    self.update_info_text("Fáza 4: Prijímatelia kontrolujú konzistenciu. "
-                                          "Byzantský R1 zatiaľ nie je odhalený.")
+            elif self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                # R1 je byzantský, R0 a S môžu porovnať hodnoty a detekovať ho
+                self.messages = [
+                    {"from": "R0", "to": "S", "type": "classical", "label": "rozdielne hodnoty"},
+                    {"from": "S", "to": "R0", "type": "classical", "label": "R1 je byzantský"}
+                ]
+                self.update_info_text("Fáza 4: Detekcia zradcu - Prijímateľ R0 a odosielateľ S zistili, "
+                                      "že hodnota hlásená prijímateľom R1 je rozdielna od hodnoty, ktorú "
+                                      "poslal odosielateľ. Odhalili, že R1 je byzantský.")
 
+            # Detekcia byzantského prijímateľa pri falošných indexoch
+            elif self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() == "Falošné indexy":
+                self.messages = [
+                    {"from": "R0", "to": "R1", "type": "classical", "label": "falošná nekonzistencia"}
+                ]
+                self.update_info_text("Fáza 4: Detekcia zradcu - Byzantský prijímateľ R0 sa pokúša "
+                                      "podviesť, ale Aharonov stav odhalí jeho nečestné správanie.")
+
+            elif self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() == "Falošné indexy":
+                self.messages = [
+                    {"from": "R1", "to": "R0", "type": "classical", "label": "falošná nekonzistencia"}
+                ]
+                self.update_info_text("Fáza 4: Detekcia zradcu - Byzantský prijímateľ R1 sa pokúša "
+                                      "podviesť, ale Aharonov stav odhalí jeho nečestné správanie.")
+
+            # Žiadny byzantský účastník alebo byzantský účastník zatiaľ neodhalený
             else:
                 self.update_info_text("Fáza 4: Žiadny zradca nebol detekovaný, všetky hodnoty sú konzistentné.")
 
@@ -481,37 +561,98 @@ class QuantumByzantineAgreement(QWidget):
             self.current_step = 0
             self.update_info_text("Prechádzame do fázy dosiahnutia dohody.")
 
+
     def handle_agreement_phase(self):
         """Spracovanie fázy dosiahnutia dohody"""
         if self.current_step == 1:
             # Byzantský odosielateľ s rozdielnymi bitmi
             if self.byzantine_player == "S":
-                if self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt" or \
-                        self.byzantine_behavior_combo.currentText() == "Falošné indexy":
-                    # Prijímatelia sa dohodnú na hodnote
-                    agreed_value = self.receiver_values[0]  # Pre jednoduchosť zvolíme hodnotu R0
-                    self.receiver_values[1] = agreed_value  # R1 prijme hodnotu R0
+                if self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+
+                    # Určenie, ktorý prijímateľ má konzistentné merania
+                    consistent_receiver_idx = 0 if self.receiver_values[0] == self.sender_value else 1
+                    inconsistent_receiver_idx = 1 - consistent_receiver_idx
+
+                    # Prijímatelia sa dohodnú na hodnote prijímateľa s konzistentnými meraniami
+                    agreed_value = self.receiver_values[consistent_receiver_idx]
+                    # Obaja prijímatelia nastavia svoju hodnotu na hodnotu dohody
+                    self.receiver_values[0] = agreed_value
+                    self.receiver_values[1] = agreed_value
 
                     self.messages = [
-                        {"from": "R0", "to": "R1", "type": "classical", "label": f"dohoda={agreed_value}"}
+                        {"from": f"R{consistent_receiver_idx}", "to": f"R{inconsistent_receiver_idx}",
+                         "type": "classical", "label": f"dohoda={agreed_value}"}
                     ]
 
-                    self.update_info_text(f"Fáza 5: Prijímatelia detekovali byzantského odosielateľa "
-                                          f"a dohodli sa na hodnote {agreed_value}.")
+                    self.update_info_text(f"Fáza 5: Prijímatelia detekovali byzantského odosielateľa. "
+                                          f"R{consistent_receiver_idx} má konzistentné merania s hodnotou "
+                                          f"{agreed_value}, zatiaľ čo R{inconsistent_receiver_idx} zistil "
+                                          f"nekonzistenciu. Vďaka vlastnostiam Aharonovho stavu sa obaja "
+                                          f"dohodli na hodnote {agreed_value}.")
+
+                    # Nastavenie, že konsenzus bol dosiahnutý
+                    self.consensus_label.setText(f"Dosiahnutý: {agreed_value}")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: green;")
+
+                elif self.byzantine_behavior_combo.currentText() == "Falošné indexy":
+                    # Obaja prijímatelia zistili nekonzistenciu s falošnými indexami
+                    # Nemôžu dôverovať odosielateľovi, ale môžu sa pokúsiť o konsenzus medzi sebou
+
+                    if self.receiver_values[0] == self.receiver_values[1]:
+                        # Ak majú prijímatelia rovnaké hodnoty, môžu sa dohodnúť
+                        agreed_value = self.receiver_values[0]
+                        self.update_info_text(
+                            f"Fáza 5: Prijímatelia detekovali falošné indexy od byzantského odosielateľa. "
+                            f"Keďže majú rovnaké hodnoty ({agreed_value}), dohodli sa na tejto hodnote.")
+                        self.consensus_label.setText(f"Dosiahnutý: {agreed_value}")
+                        self.consensus_label.setStyleSheet("font-weight: bold; color: green;")
+                    else:
+                        # Inak nedôjde k dohode
+                        self.update_info_text("Fáza 5: Prijímatelia detekovali falošné indexy od byzantského odosielateľa. "
+                                              "Keďže majú rozdielne hodnoty, nedokážu dosiahnuť konsenzus.")
+                        self.consensus_label.setText("Nedosiahnutý")
+                        self.consensus_label.setStyleSheet("font-weight: bold; color: red;")
+
                 elif self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
                     # Odosielateľ odmietne dohodu
                     self.messages = [
                         {"from": "S", "to": "R0", "type": "classical", "label": "odmietam"},
                         {"from": "S", "to": "R1", "type": "classical", "label": "odmietam"}
                     ]
-                    agreed_value = self.receiver_values[0]  # Prijímatelia sa dohodnú
-                    self.receiver_values[1] = agreed_value
-                    self.update_info_text(f"Fáza 5: Byzantský odosielateľ odmieta dohodu, ale prijímatelia "
-                                          f"sa napriek tomu dohodli na hodnote {agreed_value}.")
+
+                    # Prijímatelia si vymenia hodnoty, ktoré dostali od odosielateľa
+                    # Ak sú zhodné, majú konsenzus aj bez odosielateľa
+                    if self.receiver_values[0] == self.receiver_values[1]:
+                        agreed_value = self.receiver_values[0]
+                        self.update_info_text(f"Fáza 5: Byzantský odosielateľ odmieta dohodu, ale prijímatelia "
+                                              f"si vymenia informácie a zistia, že dostali rovnaké hodnoty {agreed_value}. "
+                                              f"Dosiahli konsenzus bez odosielateľa.")
+                        self.consensus_label.setText(f"Dosiahnutý: {agreed_value}")
+                        self.consensus_label.setStyleSheet("font-weight: bold; color: green;")
+                    else:
+                        # Prijímatelia dostali rozdielne hodnoty, nemôžu dosiahnuť konsenzus
+                        self.update_info_text(f"Fáza 5: Byzantský odosielateľ odmieta dohodu. "
+                                              f"Prijímatelia zistili, že dostali rozdielne hodnoty "
+                                              f"({self.receiver_values[0]} a {self.receiver_values[1]}). "
+                                              f"Nedokážu dosiahnuť konsenzus.")
+                        self.consensus_label.setText("Nedosiahnutý")
+                        self.consensus_label.setStyleSheet("font-weight: bold; color: red;")
 
             # Byzantský prijímateľ R0
             elif self.byzantine_player == "R0":
-                if self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
+                if self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                    agreed_value = self.sender_value
+                    # R1 nastaví svoju hodnotu
+                    self.receiver_values[1] = agreed_value
+                    self.messages = [
+                        {"from": "S", "to": "R1", "type": "classical", "label": f"dohoda={agreed_value}"}
+                    ]
+                    self.update_info_text(f"Fáza 5: Byzantský prijímateľ R0 bol odhalený ako zradca. "
+                                          f"Odosielateľ S a prijímateľ R1 sa dohodli na hodnote {agreed_value}.")
+                    self.consensus_label.setText(f"Čiastočný: {agreed_value}")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: orange;")
+
+                elif self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
                     # R0 odmieta dohodu
                     agreed_value = self.receiver_values[1]
                     self.messages = [
@@ -519,15 +660,33 @@ class QuantumByzantineAgreement(QWidget):
                     ]
                     self.update_info_text(f"Fáza 5: Byzantský prijímateľ R0 odmieta dohodu. "
                                           f"R1 si ponecháva hodnotu {agreed_value} od odosielateľa.")
+                    self.consensus_label.setText("Nedosiahnutý")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: red;")
+
                 else:
                     # Byzantský R0 je odhalený
                     agreed_value = self.receiver_values[1]
                     self.update_info_text(f"Fáza 5: Byzantský prijímateľ R0 je detekovaný. "
                                           f"R1 si ponecháva pôvodnú hodnotu {agreed_value} od odosielateľa.")
+                    # R1 a S majú konsenzus
+                    self.consensus_label.setText(f"Čiastočný: {agreed_value}")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: orange;")
 
             # Byzantský prijímateľ R1
             elif self.byzantine_player == "R1":
-                if self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
+                if self.byzantine_behavior_combo.currentText() == "Odoslanie rozdielnych hodnôt":
+                    agreed_value = self.sender_value
+                    # R0 nastaví svoju hodnotu
+                    self.receiver_values[0] = agreed_value
+                    self.messages = [
+                        {"from": "S", "to": "R0", "type": "classical", "label": f"dohoda={agreed_value}"}
+                    ]
+                    self.update_info_text(f"Fáza 5: Byzantský prijímateľ R1 bol odhalený ako zradca. "
+                                          f"Odosielateľ S a prijímateľ R0 sa dohodli na hodnote {agreed_value}.")
+                    self.consensus_label.setText(f"Čiastočný: {agreed_value}")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: orange;")
+
+                elif self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
                     # R1 odmieta dohodu
                     agreed_value = self.receiver_values[0]
                     self.messages = [
@@ -535,42 +694,26 @@ class QuantumByzantineAgreement(QWidget):
                     ]
                     self.update_info_text(f"Fáza 5: Byzantský prijímateľ R1 odmieta dohodu. "
                                           f"R0 si ponecháva hodnotu {agreed_value} od odosielateľa.")
+                    self.consensus_label.setText("Nedosiahnutý")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: red;")
+
                 else:
                     # Byzantský R1 je odhalený
                     agreed_value = self.receiver_values[0]
                     self.update_info_text(f"Fáza 5: Byzantský prijímateľ R1 je detekovaný. "
                                           f"R0 si ponecháva pôvodnú hodnotu {agreed_value} od odosielateľa.")
+                    # R0 a S majú konsenzus
+                    self.consensus_label.setText(f"Čiastočný: {agreed_value}")
+                    self.consensus_label.setStyleSheet("font-weight: bold; color: orange;")
 
             # Žiadny byzantský hráč
             else:
                 agreed_value = self.sender_value
                 self.update_info_text(f"Fáza 5: Všetci účastníci sú poctiví. "
                                       f"Dohoda na hodnote {agreed_value} bola dosiahnutá.")
-
-            # Nastavenie konečných hodnôt
-            if self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
-                # R0 si ponecháva svoju hodnotu
-                pass
-            elif self.byzantine_player != "R0":
-                self.receiver_values[0] = agreed_value
-
-            if self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() == "Odmietnutie dohody":
-                # R1 si ponecháva svoju hodnotu
-                pass
-            elif self.byzantine_player != "R1":
-                self.receiver_values[1] = agreed_value
-
-            # Nastavenie stavu dosiahnutia konsenzu
-            if self.byzantine_player is None or (
-                    self.byzantine_player == "S" and self.byzantine_behavior_combo.currentText() != "Odmietnutie dohody") or (
-                    self.byzantine_player != "S" and (
-                    self.byzantine_player == "R0" and self.byzantine_behavior_combo.currentText() != "Odmietnutie dohody" or
-                    self.byzantine_player == "R1" and self.byzantine_behavior_combo.currentText() != "Odmietnutie dohody"
-            )
-            ):
+                # Nastavenie konsenzu
                 self.consensus_label.setText(f"Dosiahnutý: {agreed_value}")
-            else:
-                self.consensus_label.setText("Nedosiahnutý")
+                self.consensus_label.setStyleSheet("font-weight: bold; color: green;")
 
         elif self.current_step == 2:
             # Kontrola kritérií úspešnosti protokolu
@@ -595,8 +738,7 @@ class QuantumByzantineAgreement(QWidget):
             # Kritérium 2: Ak je odosielateľ poctivý, zhodli sa na jeho hodnote
             criterion2 = True
             if "S" in honest_nodes:
-                agreed_value = honest_values[0]
-                criterion2 = agreed_value == self.sender_value
+                criterion2 = all(v == self.sender_value for v in honest_values)
 
             result_text = "Protokol dokončený.\n"
             result_text += f"Kritérium 1 (poctiví účastníci sa zhodli): {'✓' if criterion1 else '✗'}\n"
