@@ -181,7 +181,7 @@ class QuantumByzantineAgreement(QWidget):
         self.setLayout(main_layout)
 
         self.draw_network()
-        self.update_info_text("Protokol nespustený. Stlačte 'Inicializovať protokol' pre začatie.")
+        self.update_info_text("Protokol nespustený. Stlačte 'Inicializovať protokol' pre začatie. Cieľom je dosiahnutie dohody aj v prítomnosti zradcov.")
 
         self.initialize_index_sets()
 
@@ -202,7 +202,7 @@ class QuantumByzantineAgreement(QWidget):
                    ("S", 1), ("R0", 0), ("R1", 2)]  # Trieda IV
         }
 
-        # Triedy V a VI sa používajú na detekciu byzantského aktéra
+        # Triedy V a VI sa používajú na detekciu byzantského účastníka
         self.index_sets["V"] = [("S", 2), ("R0", 1), ("R1", 0)]
         self.index_sets["VI"] = [("S", 2), ("R0", 0), ("R1", 1)]
 
@@ -260,7 +260,7 @@ class QuantumByzantineAgreement(QWidget):
         self.update_phase_display()
         self.update_node_table()
         self.draw_network()
-        self.update_info_text("Protokol resetovaný. Stlačte 'Inicializovať protokol' pre začatie.")
+        self.update_info_text("Protokol resetovaný. Stlačte 'Inicializovať protokol' pre začatie. Cieľom je dosiahnutie dohody aj v prítomnosti zradcov.")
 
         self.consensus_label.setText("Nedosiahnutý")
         self.consensus_label.setStyleSheet("font-weight: bold;")
