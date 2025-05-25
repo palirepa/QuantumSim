@@ -52,7 +52,7 @@ class QubitStateWidget(QWidget):
 
 
 class QuantumCommitment(QWidget):
-    """Implementácia jednosmerného kvantového záväzkového protokolu."""
+    """Implementácia jednosmerného kvantového záväzku."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,7 +75,7 @@ class QuantumCommitment(QWidget):
 
     def setupUI(self):
         """Vytvorenie užívateľského rozhrania."""
-        self.setWindowTitle("Kvantový záväzkový protokol")
+        self.setWindowTitle("Kvantový záväzok")
 
         # Hlavný layout
         mainLayout = QVBoxLayout(self)
@@ -86,7 +86,7 @@ class QuantumCommitment(QWidget):
         infoLayout = QVBoxLayout(infoBox)
 
         # Nadpis
-        title = QLabel("Kvantový záväzkový protokol")
+        title = QLabel("Kvantový záväzok")
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         infoLayout.addWidget(title)
