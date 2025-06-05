@@ -11,7 +11,7 @@ Medzi vybrané kvantové protokoly patria:
 * Kvantové overovanie polohy
 * Kvantová synchronizácia času 
 
-Požiadavky na správne spustenie aplikácie **QuantumSim**:
+### Požiadavky na správne spustenie aplikácie **QuantumSim**:
  
 * **Python 3.10**
 * qiskit==0.40.0
