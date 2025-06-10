@@ -3,13 +3,13 @@
 
 Medzi vybrané kvantové protokoly patria: 
 * Kvantová distribúcia kľúčov QKD - BB84
-* Kvantový hod mince
-* Kvantový záväzok
-* Kvantové zdieľanie tajomstiev
-* Kvantová Byzantská dohoda
-* Kvantové generovanie náhodných čísel
-* Kvantové overovanie polohy
-* Kvantová synchronizácia času 
+* Kvantový hod mince - QFC
+* Kvantový záväzok - QC
+* Kvantové zdieľanie tajomstiev - QSS
+* Kvantová Byzantská dohoda - QBA
+* Kvantové generovanie náhodných čísel - QRNG
+* Kvantové overovanie polohy - QPV
+* Kvantová synchronizácia času - QST
 
 ## Požiadavky na správne spustenie aplikácie **QuantumSim**:
  
